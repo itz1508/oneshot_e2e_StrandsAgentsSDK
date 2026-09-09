@@ -59,9 +59,9 @@ test("HTTP/UI product runs chain and durable run snapshot reloads", async () => 
         .sort(),
       [
         "audit_run",
-        "project_adk_graph",
         "project_authority_graph",
         "project_run",
+        "project_strands_graph",
       ],
     );
     const audit = (await fetch(`${base}/api/runs/${start.run_id}/audit`).then(

@@ -5,9 +5,9 @@ import { rm } from "node:fs/promises";
 import { AppendOnlyProcessingEventStore } from "../../task/event/event-store.js";
 import { ProcessingEventBus } from "../../runtime/event-bus.js";
 import { detectOrderingIssues } from "../../task/guard/ordering.js";
-import { projectAdkGraph } from "../../graph/adk-graph.js";
+import { projectStrandsGraph } from "../../graph/strands-graph.js";
 
-test("Task event stream is append-only, replayable, traced, and ADK-projectable", async () => {
+test("Task event stream is append-only, replayable, traced, and Strands-projectable", async () => {
   const root = resolve(`.runtime/test-harness/task-store/${process.pid}`);
   await rm(root, { recursive: true, force: true });
   const store = new AppendOnlyProcessingEventStore(root),
@@ -15,8 +15,8 @@ test("Task event stream is append-only, replayable, traced, and ADK-projectable"
 
   bus.emit("r1", "Researcher", "Pending");
   bus.emit("r1", "Researcher", "Running");
-  bus.emit("r1", "ADK:cache", "Running", { scope: "ADK", message: "lookup" });
-  bus.emit("r1", "ADK:cache", "Completed", { scope: "ADK", message: "hit" });
+  bus.emit("r1", "Strands:cache", "Running", { scope: "SUPPORT", message: "lookup" });
+  bus.emit("r1", "Strands:cache", "Completed", { scope: "SUPPORT", message: "hit" });
   bus.emit("r1", "Researcher", "Completed", { test_result: "Passed" });
 
   const reloaded = new AppendOnlyProcessingEventStore(root).list("r1");
@@ -35,10 +35,10 @@ test("Task event stream is append-only, replayable, traced, and ADK-projectable"
   );
   assert.equal(reloaded[1].causation_id, reloaded[0].event_id);
   assert.equal(detectOrderingIssues(reloaded).length, 0);
-  const graph = projectAdkGraph(reloaded);
+  const graph = projectStrandsGraph(reloaded);
   assert.equal(
     graph.nodes.find((n) => n.id === "Provider:cache")?.state,
     "Completed",
   );
-  assert.equal(graph.root_agent.type, "Workflow");
+  assert.equal(graph.root_agent.type, "Graph");
 });

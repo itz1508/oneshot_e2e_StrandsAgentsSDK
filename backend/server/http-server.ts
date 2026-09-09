@@ -39,7 +39,7 @@ import {
   type ConfirmPlanResult,
   type PlanReviewEdits,
 } from "../pipeline/index.js";
-import { projectAdkGraph } from "../graph/adk-graph.js";
+import { projectStrandsGraph } from "../graph/strands-graph.js";
 import { projectAuthorityGraph } from "../graph/authority-graph.js";
 import { projectIntentGraph } from "../graph/intent-graph.js";
 import type { IntentCollectionService } from "../intent/intent-collection.js";
@@ -515,7 +515,7 @@ export async function startHttpServer(
             intent_collection: Boolean(intent),
             sandbox_service: Boolean(sandbox),
             provider_management: Boolean(providerManager),
-            adk_graph: "oneshot-adk-researcher-v1",
+            strands_graph: "oneshot-strands-researcher-v1",
             authority_graph: "oneshot-authority-trace-v1",
             sandbox_graph: "oneshot-sandbox-execution-v1",
           });
@@ -597,8 +597,8 @@ export async function startHttpServer(
         // ---------------------------------------------------------------
         // Static graphs (no run context)
         // ---------------------------------------------------------------
-        if (req.method === "GET" && url.pathname === "/api/graphs/adk") {
-          return json(res, 200, projectAdkGraph());
+        if (req.method === "GET" && url.pathname === "/api/graphs/strands") {
+          return json(res, 200, projectStrandsGraph());
         }
         if (req.method === "GET" && url.pathname === "/api/graphs/authority") {
           return json(res, 200, projectAuthorityGraph());
@@ -1377,14 +1377,15 @@ export async function startHttpServer(
           );
         }
 
-        // GET /api/runs/:id/adk-graph â€” ADK graph for a specific run
+        // GET /api/runs/:id/strands-graph — Strands graph for a specific run
+        // (/adk-graph kept as a compatibility alias for existing clients)
         const graphMatch = url.pathname.match(
-          /^\/api\/runs\/([^/]+)\/adk-graph$/,
+          /^\/api\/runs\/([^/]+)\/(?:strands-graph|adk-graph)$/,
         );
         if (req.method === "GET" && graphMatch) {
           const r = runs.get(graphMatch[1]);
           if (!r) return json(res, 404, { error: "run not found" });
-          return json(res, 200, projectAdkGraph(events.list(graphMatch[1])));
+          return json(res, 200, projectStrandsGraph(events.list(graphMatch[1])));
         }
 
         // GET /api/runs/:id/authority-graph â€” authority graph for a specific run

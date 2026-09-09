@@ -2,7 +2,7 @@ import type { ProcessingEvent } from "../contracts/schema/types.js";
 
 export type GraphNodeState = "Pending" | "Running" | "Completed" | "Failed";
 
-export interface AdkGraphNode {
+export interface StrandsGraphNode {
   id: string;
   label: string;
   kind:
@@ -22,27 +22,21 @@ export interface AdkGraphNode {
   message?: string;
 }
 
-export interface AdkGraphEdge {
+export interface StrandsGraphEdge {
   from: string;
   to: string;
   condition?: string;
 }
 
-interface NodeDefinition extends Omit<AdkGraphNode, "state" | "message"> {
+interface NodeDefinition extends Omit<StrandsGraphNode, "state" | "message"> {
   processor?: string;
   inherit?: string;
 }
 
 const workflowDefs: NodeDefinition[] = [
   {
-    id: "OneShotWorkflow",
-    label: "OneShot / Google ADK Workflow",
-    kind: "workflow",
-    processor: "Done",
-  },
-  {
-    id: "OneShotPipeline",
-    label: "OneShot Pipeline / dynamic node",
+    id: "OneShotCanonicalWorkflow",
+    label: "OneShot / Strands Workflow",
     kind: "workflow",
     processor: "Done",
   },
@@ -56,7 +50,7 @@ const workflowDefs: NodeDefinition[] = [
   { id: "Refactor", label: "Refactor", kind: "stage", processor: "Refactor" },
   {
     id: "GapAnalysis",
-    label: "Gap Analysis / ctx.runNode loop",
+    label: "Gap Analysis / Strands conditional cycle",
     kind: "workflow",
     processor: "GapAnalysis",
   },
@@ -86,7 +80,7 @@ const workflowDefs: NodeDefinition[] = [
   },
   {
     id: "TripleValidation",
-    label: "Triple Validation / dynamic parallel fan-out",
+    label: "Triple Validation / Strands parallel fan-out",
     kind: "parallel",
     processor: "TripleValidation",
   },
@@ -136,41 +130,41 @@ const providerDefs: NodeDefinition[] = [
     id: "Provider:cache",
     label: "Research Draft Cache",
     kind: "cache",
-    processor: "ADK:cache",
+    processor: "Strands:cache",
   },
   {
     id: "Provider:runner",
-    label: "Google ADK Researcher Pipeline",
+    label: "OneShot Strands Researcher Pipeline",
     kind: "agent",
-    processor: "ADK:researcher-pipeline",
+    processor: "Strands:researcher-pipeline",
   },
   {
     id: "Provider:distribution",
     label: "Distribution Model",
     kind: "model",
-    processor: "ADK:distribution-model",
+    processor: "Strands:distribution-model",
   },
   {
     id: "Provider:research",
     label: "Research Model",
     kind: "model",
-    processor: "ADK:research-model",
+    processor: "Strands:research-model",
   },
   {
     id: "Provider:synthesis",
     label: "Synthesis Model",
     kind: "model",
-    processor: "ADK:synthesis-model",
+    processor: "Strands:synthesis-model",
   },
   {
     id: "Provider:research-draft",
     label: "Structured Research Draft",
     kind: "artifact",
-    processor: "ADK:research-draft",
+    processor: "Strands:research-draft",
   },
 ];
 
-export const ADK_GRAPH_EDGES: AdkGraphEdge[] = [
+export const STRANDS_GRAPH_EDGES: StrandsGraphEdge[] = [
   { from: "OneShotWorkflow", to: "OneShotPipeline", condition: "START" },
   { from: "OneShotPipeline", to: "Researcher", condition: "ctx.runNode" },
   { from: "Researcher", to: "Planner" },
@@ -261,20 +255,17 @@ function rootState(latest: Map<string, ProcessingEvent>): GraphNodeState {
 }
 
 /**
- * Project the real dynamic @google/adk workflow plus the Researcher provider
+ * Project the real Strands Agents workflow plus the Researcher provider
  * subgraph. This API is projection-only; execution authority remains the
- * actual Workflow/node/ctx.runNode objects executed by WorkflowRuntime.
+ * actual Strands Graph nodes executed by WorkflowRuntime.
  */
-export function projectAdkGraph(events: ProcessingEvent[] = []) {
+export function projectStrandsGraph(events: ProcessingEvent[] = []) {
   const latest = new Map<string, ProcessingEvent>();
   for (const event of events) latest.set(event.processor, event);
 
   const defs = [...workflowDefs, ...providerDefs];
   const nodes = defs.map((definition) => {
-    if (
-      definition.id === "OneShotWorkflow" ||
-      definition.id === "OneShotPipeline"
-    ) {
+    if (definition.id === "OneShotCanonicalWorkflow") {
       return {
         id: definition.id,
         label: definition.label,
@@ -295,23 +286,23 @@ export function projectAdkGraph(events: ProcessingEvent[] = []) {
   });
 
   return {
-    graph_id: "oneshot-adk-dynamic-workflow-v3",
+    graph_id: "oneshot-strands-workflow-v3",
     authority: "projection-only",
-    execution_authority: "@google/adk",
+    execution_authority: "@strands-agents/sdk",
     root_agent: {
-      id: "OneShotWorkflow",
-      type: "Workflow",
+      id: "OneShotCanonicalWorkflow",
+      type: "Graph",
     },
     workflow_agents: {
-      pipeline: "node+ctx.runNode",
-      gap_analysis: "dynamic ctx.runNode loop",
-      triple_validation: "Promise.all(ctx.runNode)",
+      pipeline: "Strands Graph + deterministic OneShotStageNode nodes",
+      gap_analysis: "conditional cycle (GapCheck → GapFix → GapRecheck)",
+      triple_validation: "parallel fan-out with AND-join + bounded refinement cycle",
     },
     provider_subgraph: {
       attached_to: "Researcher",
       root: "Provider:researcher",
     },
     nodes,
-    edges: ADK_GRAPH_EDGES,
+    edges: STRANDS_GRAPH_EDGES,
   };
 }

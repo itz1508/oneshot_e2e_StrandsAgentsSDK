@@ -19,7 +19,7 @@ export interface GapFixResult {
   rootCause?: RootCause;
 }
 
-/** Deterministic Gap Analysis operations used by the ADK dynamic workflow. */
+/** Deterministic Gap Analysis operations used by the Strands canonical workflow. */
 export class GapAnalysisWorkflow {
   constructor(private contracts: CanonicalContractSkill) {}
 
@@ -125,7 +125,7 @@ export class GapAnalysisWorkflow {
     return gap;
   }
 
-  /** Compatibility path for direct callers outside the canonical ADK runtime. */
+  /** Compatibility path for direct callers outside the canonical Strands runtime. */
   async run(
     bundle: ResearchBundle,
     input: Plan,

@@ -1,7 +1,7 @@
 import { ToolRegistry } from "../tool/registry.js";
 import { RunRepository } from "../runtime/run-repository.js";
 import { TaskManagement } from "../task/task-management.js";
-import { projectAdkGraph } from "../graph/adk-graph.js";
+import { projectStrandsGraph } from "../graph/strands-graph.js";
 import { projectAuthorityGraph } from "../graph/authority-graph.js";
 import { SkillCatalog } from "./catalog.js";
 
@@ -9,7 +9,7 @@ import { SkillCatalog } from "./catalog.js";
  * Task Runtime Skill — exposes read-only processing evidence around the
  * canonical OneShot workflow.
  *
- * Tools: project_run, audit_run, project_adk_graph, project_authority_graph
+ * Tools: project_run, audit_run, project_strands_graph, project_authority_graph
  *
  * This skill does not own Agent execution, validation, confirmation, or hashing.
  */
@@ -41,11 +41,11 @@ export class TaskRuntimeSkill {
 
     this.registry.register(
       {
-        name: "project_adk_graph",
-        description: "Read Google ADK Researcher graph projection",
+        name: "project_strands_graph",
+        description: "Read Strands Agents workflow graph projection",
       },
       ({ run_id }: { run_id: string }) =>
-        projectAdkGraph(this.task.events.list(run_id)),
+        projectStrandsGraph(this.task.events.list(run_id)),
     );
 
     this.registry.register(

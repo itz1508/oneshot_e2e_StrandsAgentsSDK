@@ -23,7 +23,7 @@ export const CANONICAL_SKILL_TOOLS = [
 export const TASK_RUNTIME_SKILL_TOOLS = [
   "project_run",
   "audit_run",
-  "project_adk_graph",
+  "project_strands_graph",
   "project_authority_graph",
 ] as const;
 
