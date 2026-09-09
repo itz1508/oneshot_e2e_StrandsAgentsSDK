@@ -181,14 +181,14 @@ Copy this prompt into your coding agent:
 ```text
 You are an autonomous setup agent. Install and launch OneShot on this machine.
 
-Repository: https://github.com/itz1508/oneshot_e2e
+Repository: https://github.com/itz1508/oneshot_e2e_StrandsAgentsSDK
 Local URL: http://localhost:8787
 
 1. Detect the operating system. Use Docker if the user requests it;
    otherwise use the native installer.
 
 2. Clone the repository into a new directory and enter it:
-   git clone https://github.com/itz1508/oneshot_e2e.git oneshot
+   git clone https://github.com/itz1508/oneshot_e2e_StrandsAgentsSDK.git oneshot
    cd oneshot
    If already working in this repository, use the current checkout.
    Preserve existing files and changes.
@@ -243,6 +243,6 @@ Local URL: http://localhost:8787
    Blocker: only if unresolved
 ```
 
-[Source repository](https://github.com/itz1508/oneshot_e2e) · [Download ZIP](https://github.com/itz1508/oneshot_e2e/archive/refs/heads/main.zip)
+[Source repository](https://github.com/itz1508/oneshot_e2e) · [Download ZIP](https://github.com/itz1508/oneshot_e2e_StrandsAgentsSDK/archive/refs/heads/main.zip)
 
 [Apache License 2.0](LICENSE) · [Third-party notices](docs/license/NOTICE)
