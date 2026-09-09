@@ -1,5 +1,5 @@
 {
-  "name": "oneshot-production-e2e",
+  "name": "oneshot-strands-agents-e2e",
   "version": "1.3.0",
   "private": true,
   "license": "Apache-2.0",
@@ -38,7 +38,7 @@
     "test:pipeline:refinement-recovery": "node backend/scripts/test-pipeline-refinement-recovery.mjs"
   },
   "dependencies": {
-    "@google/adk": "2.0.0",
+    "@strands-agents/sdk": "^1.17.0",
     "ajv": "^8.20.0",
     "bullmq": "^6.3.4",
     "ioredis": "^6.0.0"

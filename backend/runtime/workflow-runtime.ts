@@ -1,4 +1,3 @@
-import { InMemorySessionService, Runner } from "@google/adk";
 import type {
   HashProof,
   Prompt,
@@ -8,39 +7,61 @@ import type {
 import { WorkflowInformationRequiredError } from "../core/information-required-error.js";
 import { WorkflowRootCauseError } from "../core/root-cause-error.js";
 import type { HelpRequest } from "../intent/types.js";
-import type { BoundDynamicDependencies } from "../workflow/adk/dynamic-dependencies.js";
+import { createOneShotCanonicalWorkflow } from "../workflow/strands/canonical-workflow.js";
 import {
-  createOneShotDynamicWorkflow,
-  toDynamicRootCause,
-  type OneShotDynamicResult,
-} from "../workflow/adk/dynamic-root-agent.js";
+  WORKFLOW_STATE,
+  type WorkflowEffects,
+  requireJobId,
+} from "../workflow/strands/state.js";
+import type {
+  BoundOneShotDependencies,
+  DependencyBinder,
+} from "../workflow/strands/dependencies.js";
 import type { ArtifactStore } from "./artifact-store.js";
 import type { ProcessingEventBus } from "./event-bus.js";
 import type { RunRepository } from "./run-repository.js";
 import { PlanReviewService } from "./plan-review.js";
 import { BuildReviewService } from "./build-review.js";
 
-const APP_NAME = "oneshot-dynamic-workflow";
-export type DynamicDependencyFactory = (
-  runId: string,
-) => Promise<BoundDynamicDependencies>;
+function rootCauseShape(
+  issue: string,
+  expected: string,
+  actual: string,
+  evidenceIds: string[],
+  correction: string,
+  target: string,
+): RootCause {
+  return {
+    issue,
+    expected,
+    actual,
+    evidence_ids: evidenceIds,
+    required_correction: correction,
+    recheck_target: target,
+  };
+}
 
-const VALIDATOR_PROCESSORS = new Set([
-  "SchemaValidation",
-  "FixtureValidation",
-  "GoalValidation",
-]);
+/** Convert unexpected Strands workflow failures to the canonical ROOT_CAUSE shape. */
+export function toStrandsRootCause(error: unknown, jobId: string): RootCause {
+  if (error instanceof WorkflowRootCauseError) return error.rootCause;
+  return rootCauseShape(
+    "Strands canonical workflow execution failed",
+    "OneShot Strands canonical workflow reaches a canonical terminal result",
+    error instanceof Error ? error.message : String(error),
+    [],
+    "Correct the reported Strands node, agent, provider, contract, or runtime boundary",
+    jobId,
+  );
+}
 
 /**
- * Google ADK wraps a failing dynamic child in DynamicNodeFailError and retains
- * the original exception on `.error`. Unwrap that chain without importing an
- * internal ADK error class so canonical OneShot ROOT_CAUSE and HelpRequest data
- * survive ctx.runNode() boundaries.
+ * Orchestration wrappers (for example a failed multi-agent node result) retain
+ * the original exception on `.error` or `.cause`. Unwrap that chain so
+ * canonical OneShot ROOT_CAUSE and HelpRequest data survive node boundaries.
  */
-function unwrapAdkError(error: unknown): unknown {
+function unwrapWorkflowError(error: unknown): unknown {
   let current = error;
   const seen = new Set<unknown>();
-
   for (let depth = 0; depth < 16; depth += 1) {
     if (
       current instanceof WorkflowRootCauseError ||
@@ -50,29 +71,28 @@ function unwrapAdkError(error: unknown): unknown {
     }
     if (!current || typeof current !== "object" || seen.has(current)) break;
     seen.add(current);
-
     const record = current as { error?: unknown; cause?: unknown };
     const next = record.error ?? record.cause;
     if (next === undefined || next === current) break;
     current = next;
   }
-
   return current;
 }
 
 /**
- * External runtime facade for the canonical OneShot Google ADK dynamic Workflow.
- * Existing OneShot agents are imported by connector nodes and invoked through
- * ctx.runNode(); their typed outputs are passed directly to downstream nodes.
+ * External runtime facade for the canonical OneShot Strands Agents workflow.
+ * Canonical agents are invoked inside Strands graph nodes; typed results flow
+ * through shared run state; the two human review gates stay server-side.
  */
 export class WorkflowRuntime {
   readonly review: PlanReviewService;
   readonly buildReview: BuildReviewService;
+
   constructor(
     private events: ProcessingEventBus,
     private runs: RunRepository,
     readonly store: ArtifactStore,
-    private bindDependencies: DynamicDependencyFactory,
+    private bindDependencies: DependencyBinder,
   ) {
     this.review = new PlanReviewService(store);
     this.buildReview = new BuildReviewService(store);
@@ -105,7 +125,6 @@ export class WorkflowRuntime {
   ): RunSnapshot {
     const current = this.runs.require(runId);
     if (current.pipeline_status === "Done") return current;
-
     if (helpRequest) {
       this.ev(runId, "HelpRequest", "Running", { scope: "SUPPORT" });
       this.ev(runId, "HelpRequest", "Completed", {
@@ -117,7 +136,6 @@ export class WorkflowRuntime {
         message: helpRequest.question,
       });
     }
-
     this.ev(runId, "Done", "Running");
     this.ev(runId, "Done", "Completed", {
       test_result: "Failed",
@@ -131,7 +149,6 @@ export class WorkflowRuntime {
   private finishPassed(runId: string, proof: HashProof): RunSnapshot {
     const current = this.runs.require(runId);
     if (current.pipeline_status === "Done") return current;
-
     this.ev(runId, "Done", "Running");
     this.ev(runId, "Done", "Completed", {
       test_result: "Passed",
@@ -140,8 +157,59 @@ export class WorkflowRuntime {
     return this.runs.finish(runId, "Passed", proof);
   }
 
-  /** Execute one complete canonical job through ADK Workflow + ctx.runNode(). */
+  private effectsFor(): WorkflowEffects {
+    return {
+      buildReview: async (jobId, confirmed, hash) => {
+        if (!(await this.buildReview.enabled(jobId))) return;
+        await this.buildReview.open(jobId, confirmed, hash);
+        this.ev(jobId, "BuildReady", "Running", {
+          scope: "SUPPORT",
+          message: "Confirmed package ready. Confirm Build to continue.",
+        });
+        await this.buildReview.wait(
+          jobId,
+          () => this.runs.get(jobId)?.pipeline_status === "Done",
+        );
+        await this.buildReview.requireApproved(jobId, confirmed, hash);
+        this.ev(jobId, "BuildReady", "Completed", {
+          scope: "SUPPORT",
+          message: "Build authorized for the confirmed package.",
+        });
+      },
+      review: async (jobId, research) => {
+        if (!(await this.review.open(jobId, research))) return research;
+        this.ev(jobId, "PlanReview", "Running", {
+          scope: "SUPPORT",
+          message: "Draft ready. Review and confirm before Planner continues.",
+        });
+        const reviewed = await this.review.wait(
+          jobId,
+          () => this.runs.get(jobId)?.pipeline_status === "Done",
+        );
+        await this.save(jobId, "plan.reviewed", reviewed.plan);
+        await this.save(jobId, "research.reviewed", reviewed);
+        this.ev(jobId, "PlanReview", "Completed", {
+          scope: "SUPPORT",
+          message: "Draft confirmed by the user.",
+        });
+        return reviewed;
+      },
+      event: (jobId, processor, state, data = {}) => {
+        this.ev(jobId, processor, state, data);
+      },
+      save: (jobId, name, value) => this.save(jobId, name, value),
+      finishPassed: (jobId, proof) => {
+        this.finishPassed(jobId, proof);
+      },
+      finishRoot: (jobId, rootCause, proof) => {
+        this.finishRoot(jobId, rootCause, proof);
+      },
+    };
+  }
+
+  /** Execute one complete canonical job through the Strands Agents workflow. */
   async run(runId: string, prompt: Prompt): Promise<RunSnapshot> {
+    requireJobId(runId, "OneShot");
     const order = [
       "Researcher",
       "Planner",
@@ -160,128 +228,57 @@ export class WorkflowRuntime {
     ];
     for (const processor of order) this.ev(runId, processor, "Pending");
 
-    let bound: BoundDynamicDependencies | undefined;
+    let bound: BoundOneShotDependencies | undefined;
     try {
       bound = await this.bindDependencies(runId);
-      const rootAgent = createOneShotDynamicWorkflow(bound, {
-        buildReview: async (jobId, confirmed, hash) => {
-          if (!(await this.buildReview.enabled(jobId))) return;
-          await this.buildReview.open(jobId, confirmed, hash);
-          this.ev(jobId, "BuildReady", "Running", {
-            scope: "SUPPORT",
-            message: "Confirmed package ready. Confirm Build to continue.",
-          });
-          await this.buildReview.wait(
-            jobId,
-            () => this.runs.get(jobId)?.pipeline_status === "Done",
-          );
-          await this.buildReview.requireApproved(jobId, confirmed, hash);
-          this.ev(jobId, "BuildReady", "Completed", {
-            scope: "SUPPORT",
-            message: "Build authorized for the confirmed package.",
-          });
-        },
-        review: async (jobId, research) => {
-          if (!(await this.review.open(jobId, research))) return research;
-          this.ev(jobId, "PlanReview", "Running", {
-            scope: "SUPPORT",
-            message:
-              "Draft ready. Review and confirm before Planner continues.",
-          });
-          const reviewed = await this.review.wait(
-            jobId,
-            () => this.runs.get(jobId)?.pipeline_status === "Done",
-          );
-          await this.save(jobId, "plan.reviewed", reviewed.plan);
-          await this.save(jobId, "research.reviewed", reviewed);
-          this.ev(jobId, "PlanReview", "Completed", {
-            scope: "SUPPORT",
-            message: "Draft confirmed by the user.",
-          });
-          return reviewed;
-        },
-        event: (jobId, processor, state, data = {}) => {
-          // Triple Validation is an internal validation gate, not a workflow
-          this.ev(jobId, processor, state, data);
-        },
-        save: (jobId, name, value) => this.save(jobId, name, value),
-      });
-      const sessionService = new InMemorySessionService();
-      const runner = new Runner({
-        appName: APP_NAME,
-        agent: rootAgent,
-        sessionService,
-      });
-      const session = await sessionService.createSession({
-        appName: APP_NAME,
-        userId: runId,
-        sessionId: runId,
-      });
+      const { graph, state } = createOneShotCanonicalWorkflow(
+        bound,
+        this.effectsFor(),
+      );
+      state.set(WORKFLOW_STATE.runId, runId);
+      state.set(WORKFLOW_STATE.prompt, prompt);
 
-      let terminal: OneShotDynamicResult | undefined;
-      const projectedValidatorRuns = new Set<string>();
-      for await (const event of runner.runAsync({
-        userId: runId,
-        sessionId: session.id,
-        newMessage: {
-          role: "user",
-          parts: [{ text: JSON.stringify({ job_id: runId, prompt }) }],
-        },
-      })) {
-        const adkEvent = event as unknown as {
-          author?: string;
-          output?: unknown;
-          nodeInfo?: { path?: string };
-          invocationId?: string;
-        };
+      const result = await graph.invoke(runId);
 
-        // ADK FunctionNode output is the authoritative response from each
-        // parallel validator. Project those real responses into Task events;
-        // do not synthesize validator progress in the frontend.
-        if (
-          adkEvent.author &&
-          VALIDATOR_PROCESSORS.has(adkEvent.author) &&
-          adkEvent.output &&
-          typeof adkEvent.output === "object"
-        ) {
-          const validation = adkEvent.output as {
-            result?: "Passed" | "Failed";
-            plan_id?: string;
-          };
-          const projectionKey = `${adkEvent.nodeInfo?.path ?? adkEvent.author}:${adkEvent.invocationId ?? ""}`;
-          if (validation.result && !projectedValidatorRuns.has(projectionKey)) {
-            projectedValidatorRuns.add(projectionKey);
-            this.ev(runId, adkEvent.author, "Running", {
-              message: "ADK validator node response received",
-            });
-            this.ev(runId, adkEvent.author, "Completed", {
-              test_result: validation.result,
-              artifact_id: validation.plan_id,
-            });
-          }
-        }
+      const current = this.runs.require(runId);
+      if (current.pipeline_status === "Done") return current;
 
-        if ("output" in event && event.output !== undefined) {
-          terminal = event.output as OneShotDynamicResult;
-        }
-      }
-
-      if (!terminal) {
-        throw new Error(
-          "ADK dynamic Workflow completed without terminal output",
+      const rootCause = state.rootCause();
+      if (rootCause) {
+        return this.finishRoot(
+          runId,
+          rootCause,
+          state.get<HashProof>(WORKFLOW_STATE.hashProof),
         );
       }
-      if (terminal.result === "Passed") {
-        return this.finishPassed(runId, terminal.hash_proof);
+      if (result.status === "FAILED" || result.status === "CANCELLED") {
+        const failedNode = (result.results ?? []).find(
+          (nodeResult) =>
+            nodeResult.status === "FAILED" || nodeResult.status === "CANCELLED",
+        );
+        const underlying =
+          failedNode?.error ??
+          result.error ??
+          new Error("Strands workflow failed without a node error");
+        return this.finishRoot(
+          runId,
+          toStrandsRootCause(underlying, runId),
+          undefined,
+          underlying instanceof WorkflowInformationRequiredError
+            ? underlying.helpRequest
+            : undefined,
+        );
       }
-      return this.finishRoot(runId, terminal.root_cause, terminal.hash_proof);
+      throw new Error(
+        "Strands canonical workflow completed without a terminal result",
+      );
     } catch (error) {
       const current = this.runs.require(runId);
       if (current.pipeline_status === "Done") return current;
-      const underlying = unwrapAdkError(error);
+      const underlying = unwrapWorkflowError(error);
       return this.finishRoot(
         runId,
-        toDynamicRootCause(underlying, runId),
+        toStrandsRootCause(underlying, runId),
         undefined,
         underlying instanceof WorkflowInformationRequiredError
           ? underlying.helpRequest

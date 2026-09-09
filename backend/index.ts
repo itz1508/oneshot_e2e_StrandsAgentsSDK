@@ -16,7 +16,7 @@ import { CanonicalContractSkill } from "./skills/canonical-contract-skill.js";
 import { createSkillSystem } from "./skills/bootstrap.js";
 import { ProviderManager } from "../app/web/cloud/provider-manager.js";
 import type { ResearchProvider } from "../app/web/cloud/provider.js";
-import { createDynamicDependencyFactory } from "./workflow/adk/dynamic-dependencies.js";
+import { createDynamicDependencyFactory } from "./workflow/strands/dependencies.js";
 import {
   BullMQRunQueue,
   executeRunJob,

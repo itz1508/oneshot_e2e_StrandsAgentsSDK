@@ -133,7 +133,7 @@ export async function harness(
   const builder = new BuilderWorkflow(sandbox);
 
   // Kept only for legacy unit tests of the superseded registry itself. The
-  // production/test WorkflowRuntime below executes through ADK dynamic nodes.
+  // production/test WorkflowRuntime below executes through Strands graph nodes.
   const pipeline = new AgentPipeline(events);
   pipeline.register("Researcher", () => ({ agent_id: "Researcher", runtime: researcher }));
   pipeline.register("Planner", () => ({ agent_id: "Planner", runtime: planner }));

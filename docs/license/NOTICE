@@ -12,12 +12,12 @@ Third-Party Software Notice
 Third-party software remains governed by its own upstream license terms.
 Those licenses do not apply to OneShot-owned material.
 
-1. Google ADK for TypeScript (@google/adk)
-   - Copyright Google LLC
+1. Strands Agents SDK for TypeScript (@strands-agents/sdk)
+   - Copyright Amazon Web Services, Inc. or its affiliates (strands-agents)
    - Licensed under the Apache License, Version 2.0
    - Used by OneShot workflow orchestration.
    - License copy:
-     app/legal/third-party/Google-ADK-Apache-2.0.txt
+     app/legal/third-party/Strands-Agents-Apache-2.0.txt
 
 2. LiteLLM (litellm)
    - Copyright (c) BerriAI

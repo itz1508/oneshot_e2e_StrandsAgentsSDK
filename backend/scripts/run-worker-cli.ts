@@ -28,7 +28,7 @@ import {
   ensureRuntimeDirectories,
 } from "../runtime/runtime-config.js";
 import { WorkflowRuntime } from "../runtime/workflow-runtime.js";
-import { createDynamicDependencyFactory } from "../workflow/adk/dynamic-dependencies.js";
+import { createDynamicDependencyFactory } from "../workflow/strands/dependencies.js";
 import { ResearcherWorkflow } from "../agents/researcher/workflow.js";
 import { PlannerWorkflow } from "../agents/planner/workflow.js";
 import { RefactorWorkflow } from "../agents/refactor/workflow.js";

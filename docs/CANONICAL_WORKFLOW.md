@@ -91,4 +91,4 @@ Chat turns
 → canonical workflow above
 ```
 
-Task Management, ADK graph, Intent graph, and Authority graph are projections/support metadata and are excluded from `confirmed_package.core`.
+Task Management, the Strands workflow projection, Intent graph, and Authority graph are projections/support metadata and are excluded from `confirmed_package.core`.

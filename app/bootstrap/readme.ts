@@ -16,12 +16,14 @@ Review workflow:
 - Launch and exercise the real product where the environment permits.
 - Run the repository's relevant tests, schema validation, fixture validation, workflow tests, proof checks, packaging checks, runtime checks, and other supported verification.
 - Inspect implementation, schemas, fixtures, workflow execution, generated artifacts, runtime evidence, and proof material.
-- Inspect whether the canonical workflow actually uses the official Google ADK TypeScript package and real SequentialAgent, LoopAgent, and ParallelAgent composition.
+- Inspect whether the canonical workflow actually uses the official Strands
+  Agents TypeScript SDK (@strands-agents/sdk) with real Graph orchestration,
+  deterministic custom nodes, parallel proof fan-out, and conditional cycles.
 - Verify whether Gap Analysis performs fix → recheck → repeat through LoopAgent until gap_0 or ROOT_CAUSE.
 - Verify whether Schema, Fixture, and Goal validation fan out through ParallelAgent and independent deterministic validator lanes before the Triple Validation gate.
 - Verify whether Builder is in the canonical workflow before final Hash Verification and whether sandbox execution evidence is collected.
 - Verify the cryptographic responsibility precisely: H1 and hash_sandbox/H2 are hashes of the same immutable confirmed core; execution success is a separate sandbox-evidence responsibility.
-- Compare runtime behavior with workflow/graph.json, graph validation, ADK graph projection, and authority projection where available.
+- Compare runtime behavior with workflow/graph.json, graph validation, the Strands canonical workflow projection, and authority projection where available.
 - Collect evidence as you work: commands or paths used, executed results, failures, discrepancies, unverified areas, and supporting artifacts.
 
 Evidence classification for material capability claims:

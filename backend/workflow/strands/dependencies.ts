@@ -12,7 +12,7 @@ import type { ProcessingEventBus } from "../../runtime/event-bus.js";
 import { ConfirmationWorkflow } from "../confirmation.js";
 import { HashWorkflow } from "../hash.js";
 import type { TripleValidationWorkflow } from "../triple-validation.js";
-import type { OneShotDynamicDependencies } from "./dynamic-root-agent.js";
+import type { OneShotWorkflowDependencies } from "./canonical-workflow.js";
 
 export interface DynamicDependencyFactoryInput {
   projectRoot: string;
@@ -25,13 +25,18 @@ export interface DynamicDependencyFactoryInput {
   hash?: HashWorkflow;
 }
 
-export interface BoundDynamicDependencies extends OneShotDynamicDependencies {
+export interface BoundOneShotDependencies
+  extends OneShotWorkflowDependencies {
   release(): void | Promise<void>;
 }
 
+export type DependencyBinder = (
+  runId: string,
+) => Promise<BoundOneShotDependencies>;
+
 /**
- * Resolve production dependencies for one ADK job. ResearchProvider readiness
- * is proved before the Researcher node is allowed to enter RUNNING.
+ * Resolve production dependencies for one Strands job. ResearchProvider
+ * readiness is proved before the Researcher node is allowed to enter RUNNING.
  */
 export function createDynamicDependencyFactory(
   input: DynamicDependencyFactoryInput,
@@ -40,11 +45,11 @@ export function createDynamicDependencyFactory(
     input.confirmation ?? new ConfirmationWorkflow(input.contracts);
   const hash = input.hash ?? new HashWorkflow(input.contracts);
 
-  return async (runId: string): Promise<BoundDynamicDependencies> => {
+  return async (runId: string): Promise<BoundOneShotDependencies> => {
     input.events.emit(runId, "ProviderBinding:Researcher", "Running", {
       scope: "SUPPORT",
       message:
-        "resolve provider and prove model readiness before ADK Researcher node",
+        "resolve provider and prove model readiness before the Strands Researcher node",
     });
 
     let provider: ResearchProvider | undefined;
@@ -55,7 +60,7 @@ export function createDynamicDependencyFactory(
         throw new WorkflowRootCauseError({
           issue: "Researcher provider binding is not ready",
           expected:
-            "Configured ResearchProvider and required model bindings are ready before ctx.runNode(Researcher)",
+            "Configured ResearchProvider and required model bindings are ready before the Researcher node runs",
           actual: readiness.detail || "provider readiness returned false",
           evidence_ids: readiness.models.map((model) => `model:${model}`),
           required_correction:
