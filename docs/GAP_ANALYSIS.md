@@ -24,25 +24,25 @@ UNVERIFIED.
 | # | Gap | Severity | Resolution |
 | --- | --- | --- | --- |
 | G1 | Graph projection shipped judge-visible ADK metadata: `execution_authority: "@google/adk"`, `graph_id: "oneshot-adk-dynamic-workflow-v3"`, labels "Google ADK …", processors `ADK:*` | High (credibility) | ✅ FIXED — renamed to `backend/graph/strands-graph.ts` (`projectStrandsGraph`, `oneshot-strands-workflow-v3`, `execution_authority: "@strands-agents/sdk"`, `Strands:*`), routes `/api/graphs/strands` + `/api/runs/:id/strands-graph` (`/adk-graph` kept as compat alias), skill renamed `project_strands_graph`, tests updated (TESTED) |
+| G1b | **Authority graph** shipped ADK capability strings ("Google ADK LoopAgent/ParallelAgent", node ids `ADK:*`, `execution_authority` references) | High (credibility) | ✅ FIXED — all capabilities/labels/ids rewritten to Strands equivalents (`Strands:*`, conditional gap cycle, parallel fan-out + deterministic gate) (TESTED) |
 | G2 | `task-management.test` emitted legacy `ADK:cache` / scope `"ADK"` | Medium | ✅ FIXED — emits `Strands:cache` / scope `SUPPORT`; ordering guard satisfied (TESTED) |
-| G3 | `ProcessingScope` union in `backend/contracts/schema/types.ts` still contains the literal `"ADK"` | Low (contract) | ⏳ INTENTIONAL KEEP — append-only event stores may hold historical `"ADK"`-scoped events; removing the union member would break replay of persisted runs. Revisit only with a store migration |
+| G3 | `ProcessingScope` union in `backend/contracts/schema/types.ts` still contained the literal `"ADK"` | Medium (contract) | ✅ FIXED — removed from the union AND from `backend/schema/processing-event.schema.json` (schema + types kept in sync); no emitters remain; schema Python validators pass |
 | G4 | `backend/agents/gap-analysis/workflow.ts` comments said "ADK dynamic workflow" | Low | ✅ FIXED — wording updated to Strands canonical workflow |
 | G5 | Old CDP browser scripts (`state-adaptive-e2e`, `verify-v3-visual`, `browser-e2e`, …) target the retired legacy console DOM | Medium (confusing automation) | ✅ SUPERSEDED — `strands-ui-walkthrough.mjs` is the current UI verification; legacy scripts retained only as reference |
-| G6 | `INDEX.md` inventory predates the port (still lists `backend/workflow/adk/*`) | Low (cosmetic) | ⏳ OPEN — no generator script in-repo; refresh manually or restore the generating tool |
-| G7 | Web bundle not present in a fresh clone → `server.test` UI check 404s until `npm run build:ui` | Low (onboarding) | ⏳ OPEN — document `npm run build` before `npm test` in fresh clones (README Quickstart already builds) |
+| G6 | `INDEX.md` inventory predates the port (still listed `backend/workflow/adk/*`, deleted tests, ADK CI workflows) | Low (cosmetic) | ✅ FIXED — inventory refreshed: Strands workflow files, new strands tests, new docs (ARCHITECTURE/SUBMISSION/DEMO_VIDEO_SCRIPT/GAP_ANALYSIS), section counts corrected; ADK CI workflows removed |
+| G7 | Web bundle not present in a fresh clone → `server.test` UI check 404s until `npm run build:ui` | Low (onboarding) | ✅ DOCUMENTED — README Verification section notes building the web UI before `npm test` in fresh clones |
 | G8 | Demo video on YouTube predates the Strands port | Medium (submission) | ⬜ HUMAN ACTION — record with `docs/DEMO_VIDEO_SCRIPT.md`; walkthrough evidence supersedes the old tape |
 | G9 | Live-provider run not demonstrated (sample-mode only) | Low (fair claims) | ⬜ HUMAN ACTION — optional; configure a provider and capture one live run for the submission video |
 | G10 | Bedrock AgentCore deployment (judging "strengthens" criterion) | Low | ⬜ OPEN — docker/ + Cloud Run scripts exist; AgentCore-specific deploy not built |
-| G11 | Devpost form entries (About description/topics, blog post, credits) | — | ⬜ HUMAN ACTION — see docs/SUBMISSION.md §4 |
+| G11 | Devpost form entries (About description/topics, blog post, credits) | — | ◐ PARTIAL — GitHub About description, topics (`strands-agents`, `ai-agents`, `llm`, `human-in-the-loop`, `aws`, `nextjs`) and template flag set via `gh`; blog post + credits + form entries remain human actions |
+| G12 | Stale ADK-era CI workflows (`.github/workflows/adk-v2-verify.yml`, `tmp-adk-researcher-node-test.yml`) | Low | ✅ FIXED — removed (triggered on nonexistent branches) |
+| G13 | Orphaned fixture `app/fixtures/provider/adk-research-draft.json` (no production code references, but 5 test files referenced it by path) | Low | ✅ FIXED — renamed to `research-draft.json`; all test references updated (featherless-provider, provider-cloud-paths ×3, provider-infra, reconciled-deliverable) — 17/17 provider tests pass |
 
-## 3. Final check runs (this sweep)
+## 3. Repo-wide ADK reference sweep (final)
 
-- `npm test` (full backend suite) — see `final-test.log`.
-- `npm --prefix app/web run typecheck` + `npm --prefix app/web test` — see
-  `web-typecheck.log` / `web-test.log`.
-- Browser walkthrough — `walkthrough.log` +
-  `dist/e2e-evidence/strands-walkthrough.json`.
-- Manifest — `MANIFEST_VERIFIED` after the sweep.
+`ADK|@google|adk` across `backend/`, `app/`, `scripts/`, `docs/*.md`,
+`README.md`: **0 matches** outside this document and `docs/SUBMISSION.md`
+(which references the rename itself).
 
 ## 4. Baseline parity statement
 

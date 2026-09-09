@@ -45,9 +45,9 @@ test("cloud catalog and native workers resolve from a foreign working directory"
         ONESHOT_TAVILY_MODE: "off",
         ONESHOT_TAVILY_REQUIRED: "false",
         ONESHOT_RESEARCH_EVIDENCE_FILES: "",
-        ONESHOT_OPENAI_TEST_DRAFT_FILE: "app/fixtures/provider/adk-research-draft.json",
-        ONESHOT_ANTHROPIC_TEST_DRAFT_FILE: "app/fixtures/provider/adk-research-draft.json",
-        ONESHOT_GEMINI_TEST_DRAFT_FILE: "app/fixtures/provider/adk-research-draft.json",
+        ONESHOT_OPENAI_TEST_DRAFT_FILE: "app/fixtures/provider/research-draft.json",
+        ONESHOT_ANTHROPIC_TEST_DRAFT_FILE: "app/fixtures/provider/research-draft.json",
+        ONESHOT_GEMINI_TEST_DRAFT_FILE: "app/fixtures/provider/research-draft.json",
       },
     });
     assert.match(output, /CLOUD_WORKERS_VERIFIED/);

@@ -57,10 +57,10 @@ const CATALOG: Record<
     authority: GapAnalysisAgent.id,
     owns: GapAnalysisAgent.owns,
     responsibility:
-      "identify/correct remaining plan gaps through ADK LoopAgent",
+      "identify/correct remaining plan gaps through the Strands conditional gap cycle",
     skill: "gap-analysis",
     tool: "coverage",
-    capability: "Google ADK LoopAgent",
+    capability: "Strands conditional cycle (deterministic)",
     input: "plan_id",
     output: "gap_0 + plan_id",
   },
@@ -104,7 +104,7 @@ const CATALOG: Record<
     authority: "Validator",
     responsibility: "join independent Schema, Fixture, and Goal proofs",
     skill: "canonical-contracts",
-    capability: "Google ADK ParallelAgent + deterministic gate",
+    capability: "Strands parallel fan-out + deterministic gate",
     input: "Schema + Fixture + Goal validation results",
     output: "VALID | NOT_VALID",
   },
@@ -149,52 +149,52 @@ const CATALOG: Record<
     output: "PASSED | ROOT_CAUSE",
   },
 
-  // Researcher provider ADK subgraph. This remains distinct from the new
-  // top-level canonical ADK workflow authority.
-  "ADK:researcher-provider": {
+  // Researcher provider Strands subgraph. This remains distinct from the new
+  // top-level canonical Strands workflow authority.
+  "Strands:researcher-provider": {
     authority: "Researcher",
     responsibility: "provider invocation",
     skill: "researcher",
-    capability: "Google ADK",
+    capability: "Strands Agents provider binding",
     input: "Prompt(id) + evidence",
     output: "research draft",
   },
-  "ADK:cache": {
+  "Strands:cache": {
     authority: "Researcher",
     responsibility: "non-canonical draft acceleration",
     capability: "Redis/in-memory cache",
     input: "semantic research request",
     output: "cached draft | miss",
   },
-  "ADK:adk-runner": {
+  "Strands:model-runner": {
     authority: "Researcher",
     responsibility: "model-agent execution",
-    capability: "Google ADK LlmAgent/Runner",
+    capability: "Strands model runner (deterministic)",
     input: "research request",
     output: "model request",
   },
-  "ADK:litellm": {
+  "Strands:litellm": {
     authority: "Researcher",
     responsibility: "model adapter",
     capability: "LiteLLM ollama_chat",
-    input: "ADK model request",
+    input: "Strands model request",
     output: "Ollama request",
   },
-  "ADK:ollama": {
+  "Strands:ollama": {
     authority: "Researcher",
     responsibility: "local model serving",
     capability: "Ollama",
     input: "model request",
     output: "Gemma inference",
   },
-  "ADK:gemma2": {
+  "Strands:gemma2": {
     authority: "Researcher",
     responsibility: "local inference",
     capability: "Gemma 2 9B",
     input: "structured research request",
     output: "structured response",
   },
-  "ADK:research-draft": {
+  "Strands:research-draft": {
     authority: "Researcher",
     responsibility: "validated provider draft",
     capability: "Pydantic structured output",
@@ -248,7 +248,7 @@ export function projectAuthorityGraph(events: ProcessingEvent[] = []) {
     return {
       id,
       label: id
-        .replace(/^ADK:/, "ADK / ")
+        .replace(/^Strands:/, "Strands / ")
         .replace(/^ExternalSandbox:/, "Sandbox / "),
       ...catalog,
       state: (event?.execution_status ?? "Pending") as AuthorityNode["state"],
@@ -280,13 +280,13 @@ export function projectAuthorityGraph(events: ProcessingEvent[] = []) {
   ];
 
   const researcherProvider = [
-    "ADK:researcher-provider",
-    "ADK:cache",
-    "ADK:adk-runner",
-    "ADK:litellm",
-    "ADK:ollama",
-    "ADK:gemma2",
-    "ADK:research-draft",
+    "Strands:researcher-provider",
+    "Strands:cache",
+    "Strands:model-runner",
+    "Strands:litellm",
+    "Strands:ollama",
+    "Strands:gemma2",
+    "Strands:research-draft",
   ];
   for (let i = 0; i < researcherProvider.length - 1; i += 1) {
     edges.push([researcherProvider[i], researcherProvider[i + 1]]);

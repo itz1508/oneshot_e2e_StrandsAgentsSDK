@@ -97,7 +97,7 @@ async function waitForTerminal(
 }
 
 test(
-  "live native Google ADK Gemini session runs from conversation start through Builder and final hash response",
+  "live native Strands Gemini session runs from conversation start through Builder and final hash response",
   {
     timeout: 25 * 60_000,
     skip:
@@ -131,7 +131,7 @@ test(
     const observed: ProcessingEvent[] = [];
     const stopObserve = h.events.observe((event) => {
       observed.push(event);
-      if (event.scope === "ADK" || event.execution_status === "Completed" || event.processor === "Builder") {
+      if (event.scope === "SUPPORT" || event.execution_status === "Completed" || event.processor === "Builder") {
         print("LIVE_WORKFLOW_EVENT_JSON", event);
       }
     });
@@ -209,9 +209,9 @@ test(
       }
 
       const stageProcessors = [
-        "ADK:distribution-model",
-        "ADK:research-model",
-        "ADK:synthesis-model",
+        "Strands:distribution-model",
+        "Strands:research-model",
+        "Strands:synthesis-model",
       ];
       const stageResponses = stageProcessors.map((processor) => {
         const event = persistedEvents.find(

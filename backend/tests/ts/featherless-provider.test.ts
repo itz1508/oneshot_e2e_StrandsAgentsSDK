@@ -13,7 +13,7 @@ test("Featherless Gemma provider boundary executes canonical chain in determinis
   };
   process.env.ONESHOT_MODE = "test";
   process.env.ONESHOT_FEATHERLESS_TEST_DRAFT_FILE =
-    "app/fixtures/provider/adk-research-draft.json";
+    "app/fixtures/provider/research-draft.json";
   process.env.FEATHERLESS_NUM_PARALLEL = "2";
   delete process.env.FEATHERLESS_MODEL;
 

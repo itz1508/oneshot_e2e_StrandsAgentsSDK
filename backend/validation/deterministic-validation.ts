@@ -11,7 +11,7 @@ import { ValidationLanePool } from "./validation-lane-pool.js";
 /**
  * TypeScript adapter over deterministic Python proof logic.
  *
- * The canonical ADK path runs Schema / Fixture / Goal through three dedicated
+ * The canonical Strands path runs Schema / Fixture / Goal through three dedicated
  * Python worker lanes so ParallelAgent fan-out is real execution concurrency,
  * not three TypeScript promises queued behind one synchronous Python worker.
  */
@@ -63,7 +63,7 @@ export class DeterministicValidationRuntime {
     );
   }
 
-  /** Compatibility path for direct callers outside the canonical ADK runtime. */
+  /** Compatibility path for direct callers outside the canonical Strands runtime. */
   async triple(bundle: ResearchBundle, plan: Plan): Promise<TripleValidation> {
     await this.assertRouting(bundle, plan);
     const [schemaValidation, fixtureValidation, goalValidation] =

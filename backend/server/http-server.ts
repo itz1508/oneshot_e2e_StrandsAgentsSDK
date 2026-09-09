@@ -131,7 +131,7 @@ export interface RuntimeInfo {
 /**
  * Minimal interface for the per-stage BullMQ pipeline. When supplied, the HTTP
  * layer uses it for run submission and plan confirmation instead of the legacy
- * ADK single-queue runtime.
+ * single-queue runtime (pre-Strands legacy).
  */
 export interface PipelineApi {
   queueReady: boolean;
@@ -271,7 +271,7 @@ export async function startHttpServer(
       }
     }
 
-    // Legacy ADK single-queue runtime (kept for tests and gradual migration).
+    // Legacy single-queue runtime (pre-Strands legacy) (kept for tests and gradual migration).
     await runtime?.store?.save?.(runId, "execution-mode", { mode: "inline" });
     const job: RunJobV1 = {
       version: 1,

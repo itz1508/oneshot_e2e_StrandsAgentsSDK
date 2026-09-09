@@ -26,7 +26,6 @@ export function projectTaskRun(
     event_count: events.length,
     checkpoint,
     workflow: [...latest.values()].filter((e) => e.scope === "WORKFLOW"),
-    adk: [...latest.values()].filter((e) => e.scope === "ADK"),
     support: [...latest.values()].filter((e) => e.scope === "SUPPORT"),
     artifacts: snapshot?.artifacts ?? {},
     hash_proof: snapshot?.hash_proof,

@@ -18,7 +18,7 @@ const ROOT = resolve(import.meta.dirname, "..", "..");
 /**
  * Approved root directories that may exist
  * - Product directories
- * - External dependencies (cloned Google ADK)
+ * - External dependencies (reserved)
  * - Infrastructure / runtime directories
  * - Approved infrastructure
  * - Evidence / generated
@@ -32,7 +32,7 @@ const APPROVED_DIRECTORIES = new Set([
   "scripts",
   "docker",
 
-  // External dependencies (cloned Google ADK)
+  // External dependencies (reserved)
   "external",
 
   // Infrastructure / runtime directories

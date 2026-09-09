@@ -4,7 +4,7 @@ export type ExecutionStatus = "Pending" | "Running" | "Completed" | "Failed";
 export type TestResult = "Passed" | "Failed";
 export type IssueType = "Root Cause" | "Missing";
 export type PipelineStatus = "Running" | "Done";
-export type ProcessingScope = "WORKFLOW" | "ADK" | "SUPPORT" | "SANDBOX";
+export type ProcessingScope = "WORKFLOW" | "SANDBOX" | "SUPPORT";
 export interface PromptContext { context_id:string; statement:string }
 export interface Prompt { prompt_id:string; intent:string; requested_outcome:string; context:PromptContext[]; research_direction:string[] }
 export interface EvidenceRef { evidence_id:string; source:string; statement:string; provenance:string }

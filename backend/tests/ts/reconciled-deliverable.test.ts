@@ -14,7 +14,7 @@ import { harness, prompt } from "./harness.js";
 
 test("provider output survives canonical validation, real sandbox execution and durable build artifacts", async () => {
   const output = `Generated document ${randomUUID()} — preserve exact user-facing content.`;
-  const draft = JSON.parse(await readFile("app/fixtures/provider/adk-research-draft.json", "utf8"));
+  const draft = JSON.parse(await readFile("app/fixtures/provider/research-draft.json", "utf8"));
   draft.deliverable = output;
   const provider: ResearchProvider = {
     ready: async () => ({ ready: true, provider: "test", models: [], detail: "Explicit deterministic fixture" }),

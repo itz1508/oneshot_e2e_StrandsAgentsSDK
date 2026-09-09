@@ -15,17 +15,17 @@ A navigable inventory of the files in this repository. Select a section, then ex
 | [Workspace API](#workspace-api) | Standalone workspace service, models, authentication, and API checks. | 19 |
 | [Application support](#application-support) | Bootstrap, packaging tools, fixtures, dependency requirements, and bundled assets. | 31 |
 | [Workflow agents](#workflow-agents) | Agent operating instructions, workflows, and agent-owned tools. | 28 |
-| [Pipeline and workflow](#pipeline-and-workflow) | Stage queues, durable checkpoints, recovery, transitions, and ADK nodes. | 42 |
+| [Pipeline and workflow](#pipeline-and-workflow) | Stage queues, durable checkpoints, recovery, transitions, and Strands graph nodes. | 32 |
 | [Runtime and HTTP server](#runtime-and-http-server) | Run state, artifact storage, human review gates, HTTP handlers, and workspace access. | 15 |
 | [Contracts and validation](#contracts-and-validation) | JSON schemas, contract representations, deterministic validators, and hashing. | 51 |
 | [Skills and sandbox](#skills-and-sandbox) | Reusable skill bindings and governed execution services. | 37 |
 | [Python backend service](#python-backend-service) | Standalone Python service and its own package, container, and tests. | 12 |
 | [Backend support](#backend-support) | Intent, task management, graph projections, shared utilities, and backend entrypoints. | 30 |
-| [Tests and browser checks](#tests-and-browser-checks) | Backend/frontend test suites and browser automation scripts. | 95 |
+| [Tests and browser checks](#tests-and-browser-checks) | Backend/frontend test suites and browser automation scripts. | 89 |
 | [Launchers and operations](#launchers-and-operations) | Installers, bootstrap, deployment, health probes, and repository maintenance. | 31 |
 | [Containers](#containers) | Dockerfiles, Compose configurations, and container documentation. | 7 |
-| [Documentation and evidence](#documentation-and-evidence) | Product requirements, workflow documents, handoffs, notices, and recorded evidence. | 11 |
-| [Automation and agent metadata](#automation-and-agent-metadata) | GitHub workflows, repository rules, and agent skills. | 6 |
+| [Documentation and evidence](#documentation-and-evidence) | Product requirements, workflow documents, handoffs, notices, and recorded evidence. | 15 |
+| [Automation and agent metadata](#automation-and-agent-metadata) | GitHub workflows, repository rules, and agent skills. | 4 |
 
 ## Root and repository guidance
 
@@ -213,8 +213,8 @@ Bootstrap, packaging tools, fixtures, dependency requirements, and bundled asset
 - [app/fixtures/e2e/complete-success.json](app/fixtures/e2e/complete-success.json)
 - [app/fixtures/fixture-suite.json](app/fixtures/fixture-suite.json)
 - [app/fixtures/product/complete-success-seed.json](app/fixtures/product/complete-success-seed.json)
-- [app/fixtures/provider/adk-research-draft.json](app/fixtures/provider/adk-research-draft.json)
-- [app/legal/third-party/Google-ADK-Apache-2.0.txt](app/legal/third-party/Google-ADK-Apache-2.0.txt)
+- [app/fixtures/provider/research-draft.json](app/fixtures/provider/research-draft.json)
+- [app/legal/third-party/Strands-Agents-Apache-2.0.txt](app/legal/third-party/Strands-Agents-Apache-2.0.txt)
 - [app/requirements/base.txt](app/requirements/base.txt)
 - [app/requirements/featherless.txt](app/requirements/featherless.txt)
 - [app/requirements/workspace-api.txt](app/requirements/workspace-api.txt)
@@ -271,10 +271,10 @@ Agent operating instructions, workflows, and agent-owned tools.
 
 ## Pipeline and workflow
 
-Stage queues, durable checkpoints, recovery, transitions, and ADK nodes.
+Stage queues, durable checkpoints, recovery, transitions, and Strands graph nodes.
 
 <details>
-<summary>Browse 42 files</summary>
+<summary>Browse 32 files</summary>
 
 - [backend/pipeline/agent-pipeline.ts](backend/pipeline/agent-pipeline.ts)
 - [backend/pipeline/apply-transition.ts](backend/pipeline/apply-transition.ts)
@@ -297,22 +297,12 @@ Stage queues, durable checkpoints, recovery, transitions, and ADK nodes.
 - [backend/pipeline/transition-services.ts](backend/pipeline/transition-services.ts)
 - [backend/pipeline/types.ts](backend/pipeline/types.ts)
 - [backend/pipeline/worker.ts](backend/pipeline/worker.ts)
-- [backend/workflow/adk/dynamic-dependencies.ts](backend/workflow/adk/dynamic-dependencies.ts)
-- [backend/workflow/adk/dynamic-root-agent.ts](backend/workflow/adk/dynamic-root-agent.ts)
-- [backend/workflow/adk/gap-loop.ts](backend/workflow/adk/gap-loop.ts)
-- [backend/workflow/adk/node/builder-node.ts](backend/workflow/adk/node/builder-node.ts)
-- [backend/workflow/adk/node/confirmation-node.ts](backend/workflow/adk/node/confirmation-node.ts)
-- [backend/workflow/adk/node/evaluation-node.ts](backend/workflow/adk/node/evaluation-node.ts)
-- [backend/workflow/adk/node/gap-analysis-node.ts](backend/workflow/adk/node/gap-analysis-node.ts)
-- [backend/workflow/adk/node/hash-node.ts](backend/workflow/adk/node/hash-node.ts)
-- [backend/workflow/adk/node/planner-node.ts](backend/workflow/adk/node/planner-node.ts)
-- [backend/workflow/adk/node/refactor-node.ts](backend/workflow/adk/node/refactor-node.ts)
-- [backend/workflow/adk/node/researcher-node.ts](backend/workflow/adk/node/researcher-node.ts)
-- [backend/workflow/adk/node/triple-validation-node.ts](backend/workflow/adk/node/triple-validation-node.ts)
-- [backend/workflow/adk/root-agent.ts](backend/workflow/adk/root-agent.ts)
-- [backend/workflow/adk/stage-agent.ts](backend/workflow/adk/stage-agent.ts)
-- [backend/workflow/adk/state.ts](backend/workflow/adk/state.ts)
-- [backend/workflow/adk/triple-validation.ts](backend/workflow/adk/triple-validation.ts)
+- [backend/workflow/strands/canonical-workflow.ts](backend/workflow/strands/canonical-workflow.ts)
+- [backend/workflow/strands/dependencies.ts](backend/workflow/strands/dependencies.ts)
+- [backend/workflow/strands/gap-graph.ts](backend/workflow/strands/gap-graph.ts)
+- [backend/workflow/strands/proof-graph.ts](backend/workflow/strands/proof-graph.ts)
+- [backend/workflow/strands/stage-node.ts](backend/workflow/strands/stage-node.ts)
+- [backend/workflow/strands/state.ts](backend/workflow/strands/state.ts)
 - [backend/workflow/canonical-transition.ts](backend/workflow/canonical-transition.ts)
 - [backend/workflow/confirmation.ts](backend/workflow/confirmation.ts)
 - [backend/workflow/graph.json](backend/workflow/graph.json)
@@ -488,7 +478,7 @@ Intent, task management, graph projections, shared utilities, and backend entryp
 - [backend/core/information-required-error.ts](backend/core/information-required-error.ts)
 - [backend/core/root-cause-error.ts](backend/core/root-cause-error.ts)
 - [backend/environment.ts](backend/environment.ts)
-- [backend/graph/adk-graph.ts](backend/graph/adk-graph.ts)
+- [backend/graph/strands-graph.ts](backend/graph/strands-graph.ts)
 - [backend/graph/authority-graph.ts](backend/graph/authority-graph.ts)
 - [backend/graph/intent-graph.ts](backend/graph/intent-graph.ts)
 - [backend/index.ts](backend/index.ts)
@@ -521,7 +511,7 @@ Intent, task management, graph projections, shared utilities, and backend entryp
 Backend/frontend test suites and browser automation scripts.
 
 <details>
-<summary>Browse 95 files</summary>
+<summary>Browse 89 files</summary>
 
 - [app/web/tests/console-interactions.test.mjs](app/web/tests/console-interactions.test.mjs)
 - [app/web/tests/human-gates.test.mjs](app/web/tests/human-gates.test.mjs)
@@ -547,16 +537,10 @@ Backend/frontend test suites and browser automation scripts.
 - [backend/tests/python/test_schemas.py](backend/tests/python/test_schemas.py)
 - [backend/tests/python/test_skill_surface.py](backend/tests/python/test_skill_surface.py)
 - [backend/tests/python/test_source_file_policy.py](backend/tests/python/test_source_file_policy.py)
-- [backend/tests/ts/adk-dynamic-workflow.test.ts](backend/tests/ts/adk-dynamic-workflow.test.ts)
-- [backend/tests/ts/adk-evaluation-node.test.ts](backend/tests/ts/adk-evaluation-node.test.ts)
-- [backend/tests/ts/adk-gap-analysis-node.test.ts](backend/tests/ts/adk-gap-analysis-node.test.ts)
-- [backend/tests/ts/adk-gap-loop.test.ts](backend/tests/ts/adk-gap-loop.test.ts)
-- [backend/tests/ts/adk-planner-node.test.ts](backend/tests/ts/adk-planner-node.test.ts)
-- [backend/tests/ts/adk-refactor-node.test.ts](backend/tests/ts/adk-refactor-node.test.ts)
-- [backend/tests/ts/adk-researcher-node.test.ts](backend/tests/ts/adk-researcher-node.test.ts)
-- [backend/tests/ts/adk-triple-validation-node.test.ts](backend/tests/ts/adk-triple-validation-node.test.ts)
-- [backend/tests/ts/adk-validation-refinement-loop.test.ts](backend/tests/ts/adk-validation-refinement-loop.test.ts)
-- [backend/tests/ts/adk-workflow-structure.test.ts](backend/tests/ts/adk-workflow-structure.test.ts)
+- [backend/tests/ts/strands-workflow-structure.test.ts](backend/tests/ts/strands-workflow-structure.test.ts)
+- [backend/tests/ts/strands-gap-loop.test.ts](backend/tests/ts/strands-gap-loop.test.ts)
+- [backend/tests/ts/strands-refinement-loop.test.ts](backend/tests/ts/strands-refinement-loop.test.ts)
+- [backend/tests/ts/strands-workflow-runtime.test.ts](backend/tests/ts/strands-workflow-runtime.test.ts)
 - [backend/tests/ts/agent-pipeline.test.ts](backend/tests/ts/agent-pipeline.test.ts)
 - [backend/tests/ts/authority-graph.test.ts](backend/tests/ts/authority-graph.test.ts)
 - [backend/tests/ts/build-review.test.ts](backend/tests/ts/build-review.test.ts)
@@ -684,10 +668,14 @@ Dockerfiles, Compose configurations, and container documentation.
 Product requirements, workflow documents, handoffs, notices, and recorded evidence.
 
 <details>
-<summary>Browse 11 files</summary>
+<summary>Browse 15 files</summary>
 
 - [docs/APP_REVIEW.md](docs/APP_REVIEW.md)
 - [docs/CANONICAL_WORKFLOW.md](docs/CANONICAL_WORKFLOW.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/DEMO_VIDEO_SCRIPT.md](docs/DEMO_VIDEO_SCRIPT.md)
+- [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md)
+- [docs/SUBMISSION.md](docs/SUBMISSION.md)
 - [docs/JUDGE_AGENT_PROMPT.txt](docs/JUDGE_AGENT_PROMPT.txt)
 - [docs/LLM WorkFlow CALL.txt](docs/LLM%20WorkFlow%20CALL.txt)
 - [docs/ONESHOT_APP_REVIEW_HANDOFF.md](docs/ONESHOT_APP_REVIEW_HANDOFF.md)
@@ -705,14 +693,12 @@ Product requirements, workflow documents, handoffs, notices, and recorded eviden
 GitHub workflows, repository rules, and agent skills.
 
 <details>
-<summary>Browse 6 files</summary>
+<summary>Browse 4 files</summary>
 
 - [.agents/rules/oneshot-skill-architecture.md](.agents/rules/oneshot-skill-architecture.md)
 - [.agents/skills/oneshot-judge/SKILL.md](.agents/skills/oneshot-judge/SKILL.md)
-- [.github/workflows/adk-v2-verify.yml](.github/workflows/adk-v2-verify.yml)
 - [.github/workflows/pipeline-e2e.yml](.github/workflows/pipeline-e2e.yml)
 - [.github/workflows/tavily-researcher-verify.yml](.github/workflows/tavily-researcher-verify.yml)
-- [.github/workflows/tmp-adk-researcher-node-test.yml](.github/workflows/tmp-adk-researcher-node-test.yml)
 
 </details>
 

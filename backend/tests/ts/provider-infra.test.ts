@@ -71,7 +71,7 @@ for (const [id, name] of [["openai", "OpenAI"], ["anthropic", "Anthropic"], ["ge
     delete process.env[envName];
     delete process.env.GOOGLE_API_KEY;
     const observed: { model: string; key: string; path: string }[] = [];
-    const fixture = readFileSync("app/fixtures/provider/adk-research-draft.json", "utf8");
+    const fixture = readFileSync("app/fixtures/provider/research-draft.json", "utf8");
     let reject = false;
     const remote = createServer(async (req, res) => {
       let raw = "";

@@ -21,7 +21,7 @@ export interface AgentPipelineBootstrapInput {
 
 /**
  * Register canonical Agent factories without activating them.
- * Activation is explicit and happens only when the ADK workflow reaches a Agent.
+ * Activation is explicit and happens only when the Strands workflow reaches an Agent.
  */
 export function createAgentPipeline(
   input: AgentPipelineBootstrapInput,

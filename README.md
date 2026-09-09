@@ -133,6 +133,10 @@ Research can start — by design.
 | Pipeline E2E (needs server, worker, Redis) | `npm run test:pipeline:e2e` |
 | Source manifest | `python app/scripts/generate_manifest.py` then `python app/scripts/verify_manifest.py` |
 
+> **Fresh clones:** `npm test` runs the backend suite only. Build the web UI
+> first (`npm run build:ui`, or `npm run build` for backend + UI) so the
+> server/UI product test can serve `app/web/dist`.
+
 The Strands port is covered by `backend/tests/ts/strands-*.test.ts`:
 canonical graph structure, gap cycle to gap_0, bounded validation-refinement
 cycle with re-proving validators, and the full runtime chain to DONE with a

@@ -98,7 +98,7 @@ events.observe((e) => {
 
 // --- Validation & Contracts (composed through the Reusable Skill subsystem) ---
 // Canonical contract operations keep their own bridge. Triple Validation has
-// three separate Python lanes; the ADK dynamic node starts all three runNode()
+// three separate Python lanes; the Strands proof subgraph fans all three lanes out
 // calls before awaiting Promise.all.
 const bridge = new PythonBridge();
 const validationLanes = new ValidationLanePool();
@@ -179,7 +179,7 @@ const stageServices: StageServices = {
   pythonReasoner,
 };
 
-// --- Google ADK Dynamic Workflow Runtime (legacy inline fallback) ---
+// --- Canonical Strands Workflow Runtime (legacy inline fallback) ---
 // Kept so the server can still boot and run jobs in-process when Redis is
 // unavailable. The per-stage BullMQ pipeline is the primary execution path.
 const bindDependencies = createDynamicDependencyFactory({
