@@ -33,6 +33,7 @@
     "dev:down": "docker compose -f docker/docker-compose.dev.yml down",
     "start:worker": "node dist/backend/scripts/run-pipeline-worker.js",
     "test:pipeline:e2e": "node backend/scripts/test-pipeline-e2e.mjs",
+    "test:ui:walkthrough": "node scripts/e2e/browser/strands-ui-walkthrough.mjs",
     "test:pipeline:recovery": "node backend/scripts/test-pipeline-recovery.mjs",
     "test:pipeline:checkpoint-recovery": "node backend/scripts/test-pipeline-checkpoint-recovery.mjs",
     "test:pipeline:refinement-recovery": "node backend/scripts/test-pipeline-refinement-recovery.mjs"

@@ -2,6 +2,31 @@
 
 Review the current application using the [installation instructions](../README.md). The production interface is built from [app/web/app](../app/web/app/) and [app/web/components](../app/web/components/), and served by the OneShot backend.
 
+## Browser walkthrough — September 9, 2026 (Strands runtime)
+
+`scripts/e2e/browser/strands-ui-walkthrough.mjs` drives the CURRENT Next.js
+workspace UI (headless Edge CDP) against the real Strands runtime in sample
+mode. Verified end to end with screenshots and evidence JSON
+(`dist/e2e-evidence/strands-walkthrough.json`,
+`dist/e2e-evidence/screenshots-strands-walkthrough/`):
+
+- Workspace mounts; chat request sent; intent collection enables Generate
+  (`ready_for_prompt` + configured target).
+- Research Review gate reached and accepted through the UI
+  (`research-summary-card`).
+- Stage rail completes all ten stages through the Strands Graph.
+- Build Ready gate reached; Confirm Build executes the sandbox build.
+- Result card shows VERIFIED EQUAL; backend snapshot matches
+  (`test_result=Passed`, `pipeline_status=Done`, `hash_proof.equal=true`).
+- Explorer lists the configured target workspace; Task Management renders
+  plan steps.
+
+Run via `npm run test:ui:walkthrough` (requires the server on :8787 in
+sample mode with `ONESHOT_API_TOKEN` matching; see the script header). The
+previous live-processing video predates the Strands port; this walkthrough
+plus a fresh recording supersede it.
+
+
 ## Live walkthrough
 
 1. Launch the application and open **Provider Configuration**.
