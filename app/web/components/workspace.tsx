@@ -28,6 +28,22 @@ import { Modal } from "./modal";
 import { CodeViewerModal, FileNode } from "./file-browser";
 import { BuildCard, Mutations, ResearchCard, ResultCard } from "./review-cards";
 
+type AssistantTurnStatus =
+    | "working"
+    | "waiting_for_user"
+    | "completed"
+    | "failed";
+type TurnVM = {
+    key: string;
+    time: string;
+    kind: "user" | "assistant";
+    turnId?: string;
+    text?: string;
+    status?: AssistantTurnStatus;
+    content?: string;
+    embedded?: "research" | "build" | "sandbox" | "result" | null;
+};
+
 const STAGE_ORDER = [
     "Researcher",
     "Planner",
@@ -87,6 +103,8 @@ export default function Workspace() {
     const providerLock = useRef(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [authKey, setAuthKey] = useState(0);
+    const [settingsProvider, setSettingsProvider] = useState("");
+    const [showCredential, setShowCredential] = useState(false);
     const [newChat, setNewChat] = useState(false);
     const epoch = useRef(0);
     const input = useRef<HTMLTextAreaElement>(null);
@@ -568,157 +586,121 @@ export default function Workspace() {
         return "";
     }, [active, activeProvider]);
 
-    // Build Conversation Entries
-    const entries: { key: string; time: string; content: ReactNode }[] = (
-        conversation?.turns || []
-    ).map((t) => ({
+    // ----- Conversation turn view model -----
+    // One user send = one user turn; ONE assistant turn per exchange that
+    // evolves as real backend state (run snapshot / review / build / SSE
+    // events) updates. Derived view only — no new persistence, no new
+    // workflow engine, no simulated progress.
+    const userTurns: TurnVM[] = (conversation?.turns || []).map((t) => ({
         key: t.turn_id,
         time: t.created_at,
-        content: (
-            <div
-                className="message-turn"
-                data-testid={`chat-message-${t.turn_id}`}
-            >
-                <div className="message-bubble user">
-                    <div className="bubble-author">You</div>
-                    <div className="bubble-text">{t.user_message}</div>
-                </div>
-            </div>
-        ),
+        kind: "user" as const,
+        turnId: t.turn_id,
+        text: t.user_message,
     }));
 
-    if (run && bundle) {
-        entries.push({
-            key: "research",
+    const runFailed =
+        run?.pipeline_status === "Done" && run.test_result !== "Passed";
+    const runCompleted =
+        run?.pipeline_status === "Done" && run.test_result === "Passed";
+    const buildPending = build?.status === "pending";
+    const researchGate = !!run && waiting;
+    const intentReady =
+        !!conversation?.intent?.ready_for_prompt && !runId && !busy;
+    const builderLive = !!run && builderStarted(run);
+
+    let assistantTurn: TurnVM | null = null;
+    if (runFailed || runCompleted) {
+        assistantTurn = {
+            key: "assistant-current",
+            time: run?.events.at(-1)?.created_at || "",
+            kind: "assistant",
+            status: runFailed ? "failed" : "completed",
+            content: runFailed
+                ? `I hit a blocker and stopped: ${
+                      run?.root_cause?.issue || "the pipeline failed"
+                  }${run?.root_cause?.actual ? ` — ${run.root_cause.actual}` : ""}`
+                : "Build verified — the sandbox output hash matches the hash you approved. The job is complete.",
+            embedded: "result",
+        };
+    } else if (buildPending) {
+        assistantTurn = {
+            key: "assistant-current",
+            time: build?.created_at || "",
+            kind: "assistant",
+            status: "waiting_for_user",
+            content:
+                "The build package is validated and ready. Confirm the build to execute it in the sandbox.",
+            embedded: "build",
+        };
+    } else if (run && bundle && !builderLive) {
+        // Research review embedded from research-complete through the plan
+        // stages; the card's own pill tracks gate vs accepted (baseline).
+        assistantTurn = {
+            key: "assistant-current",
             time:
                 review?.created_at ||
-                run.events.filter((e) => e.processor === "Researcher").at(-1)
-                    ?.created_at ||
+                run.events
+                    .filter((e) => e.processor === "Researcher")
+                    .at(-1)?.created_at ||
                 "",
-            content: (
-                <div className="message-turn">
-                    <div className="message-bubble assistant">
-                        <div className="bubble-author">
-                            <span className="brand-mark-mini">1S</span> OneShot
-                        </div>
-                        <ResearchCard
-                            key={`${runId}:${bundleVersion}:${review?.created_at}:${review?.revision}`}
-                            bundle={bundle}
-                            review={review}
-                            waiting={waiting}
-                            busy={busy || gateLoading}
-                            onAccept={accept}
-                            onAgain={() => {
-                                setMode("research-again");
-                                input.current?.focus();
-                            }}
-                        />
-                    </div>
-                </div>
-            ),
-        });
-    }
-
-    if (build && run) {
-        entries.push({
-            key: "build",
-            time: build.created_at,
-            content: (
-                <div className="message-turn">
-                    <div className="message-bubble assistant">
-                        <div className="bubble-author">
-                            <span className="brand-mark-mini">1S</span> OneShot
-                        </div>
-                        <BuildCard
-                            review={build}
-                            terminal={run.pipeline_status === "Done"}
-                            busy={busy}
-                            onDecision={decideBuild}
-                        />
-                    </div>
-                </div>
-            ),
-        });
-    }
-
-    if (run && builderStarted(run)) {
-        entries.push({
-            key: "sandbox",
+            kind: "assistant",
+            status: researchGate ? "waiting_for_user" : "working",
+            content: researchGate
+                ? "Research is complete. Review the findings before I continue."
+                : `Working — ${currentPhase(run)}…`,
+            embedded: "research",
+        };
+    } else if (builderLive) {
+        assistantTurn = {
+            key: "assistant-current",
             time:
-                run.events.find(
+                run?.events.find(
                     (e) =>
                         e.processor === "Builder" &&
                         e.execution_status !== "Pending",
                 )?.created_at || "",
-            content: (
-                <div className="message-turn">
-                    <div className="message-bubble assistant">
-                        <div className="bubble-author">
-                            <span className="brand-mark-mini">1S</span> OneShot
-                        </div>
-                        <div className="card" id="sandbox-card">
-                            <div className="card-topbar">
-                                <div>
-                                    <span className="card-tagline">
-                                        Sandbox Execution
-                                    </span>
-                                    <h2 className="card-title">
-                                        Isolated Process Runner
-                                    </h2>
-                                </div>
-                                <span className="card-status-pill running">
-                                    Running
-                                </span>
-                            </div>
-                            <p className="card-lead">
-                                Executing confirmed plan mutations in
-                                HardenedProcessRunner with workspace boundary
-                                enforcement.
-                            </p>
-                            <div className="hash-proof-box">
-                                <div className="hash-row">
-                                    <span className="hash-label">Status:</span>
-                                    <span className="hash-val">
-                                        {run.events
-                                            .filter(
-                                                (e) =>
-                                                    e.processor === "Builder",
-                                            )
-                                            .at(-1)?.execution_status ||
-                                            "Running"}{" "}
-                                        ·{" "}
-                                        {run.current_processor
-                                            ? currentPhase(run)
-                                            : run.pipeline_status}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        {run.pipeline_status === "Done" && (
-                            <ResultCard run={run} mutations={mutations} />
-                        )}
-                    </div>
-                </div>
-            ),
-        });
-    } else if (run?.pipeline_status === "Done") {
-        entries.push({
-            key: "result",
+            kind: "assistant",
+            status: "working",
+            content: `Working — executing the confirmed build in the isolated sandbox (${currentPhase(run!)}).`,
+            embedded: "sandbox",
+        };
+    } else if (run) {
+        assistantTurn = {
+            key: "assistant-current",
             time: run.events.at(-1)?.created_at || "",
-            content: (
-                <div className="message-turn">
-                    <div className="message-bubble assistant">
-                        <div className="bubble-author">
-                            <span className="brand-mark-mini">1S</span> OneShot
-                        </div>
-                        <ResultCard run={run} mutations={mutations} />
-                    </div>
-                </div>
-            ),
-        });
+            kind: "assistant",
+            status: "working",
+            content: run.current_processor
+                ? `Working — ${currentPhase(run)}…`
+                : "Working…",
+            embedded: null,
+        };
+    } else if (intentReady) {
+        assistantTurn = {
+            key: "assistant-current",
+            time: "",
+            kind: "assistant",
+            status: "waiting_for_user",
+            content:
+                "I have everything I need. Generate the run and I'll take it from here.",
+            embedded: null,
+        };
+    } else if (busy) {
+        assistantTurn = {
+            key: "assistant-current",
+            time: "",
+            kind: "assistant",
+            status: "working",
+            content: "Working…",
+            embedded: null,
+        };
     }
 
-    entries.sort((a, b) => a.time.localeCompare(b.time));
+    const turns: TurnVM[] = [
+        ...userTurns,
+        ...(assistantTurn ? [assistantTurn] : []),
+    ];
 
     // Determine Task Management badge
     let panelBadge = "Idle";
@@ -1048,7 +1030,7 @@ export default function Workspace() {
                                 No target selected. Set ONESHOT_WORKSPACE_ROOT to your project folder and restart OneShot to enable Research.
                             </div>
                         )}
-                        {!entries.length && (
+                        {!turns.length && (
                             <div
                                 className="conversation-empty"
                                 id="empty-state"
@@ -1112,9 +1094,160 @@ export default function Workspace() {
                         )}
 
                         <div className="messages-stream" id="messages-stream">
-                            {entries.map((e) => (
-                                <div key={e.key}>{e.content}</div>
-                            ))}
+                        <div className="messages-stream" id="messages-stream">
+                            {turns.map((t) =>
+                                t.kind === "user" ? (
+                                    <div
+                                        key={t.key}
+                                        className="message-turn"
+                                        data-testid={`chat-message-${t.turnId}`}
+                                    >
+                                        <div className="message-bubble user">
+                                            <div className="bubble-author">
+                                                You
+                                            </div>
+                                            <div className="bubble-text">
+                                                {t.text}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div key={t.key} className="message-turn">
+                                        <div
+                                            className="message-bubble assistant"
+                                            data-status={t.status}
+                                        >
+                                            <div className="bubble-author">
+                                                <span className="brand-mark-mini">
+                                                    1S
+                                                </span>{" "}
+                                                OneShot
+                                                <span
+                                                    className={`turn-status turn-status-${t.status}`}
+                                                    data-testid="assistant-turn-status"
+                                                >
+                                                    {t.status === "working" && (
+                                                        <span className="turn-spinner" />
+                                                    )}
+                                                    {t.status === "working"
+                                                        ? "Working…"
+                                                        : t.status ===
+                                                              "waiting_for_user"
+                                                          ? "Waiting for you"
+                                                          : t.status ===
+                                                                "completed"
+                                                            ? "Completed"
+                                                            : "Failed"}
+                                                </span>
+                                            </div>
+                                            {t.content ? (
+                                                <div className="bubble-text turn-content">
+                                                    {t.content}
+                                                </div>
+                                            ) : null}
+                                            {t.embedded === "research" &&
+                                                bundle && (
+                                                    <ResearchCard
+                                                        key={`${runId}:${bundleVersion}:${review?.created_at}:${review?.revision}`}
+                                                        bundle={bundle}
+                                                        review={review}
+                                                        waiting={waiting}
+                                                        busy={busy || gateLoading}
+                                                        onAccept={accept}
+                                                        onAgain={() => {
+                                                            setMode(
+                                                                "research-again",
+                                                            );
+                                                            input.current?.focus();
+                                                        }}
+                                                    />
+                                                )}
+                                            {t.embedded === "build" &&
+                                                build &&
+                                                run && (
+                                                    <BuildCard
+                                                        review={build}
+                                                        terminal={
+                                                            run.pipeline_status ===
+                                                            "Done"
+                                                        }
+                                                        busy={busy}
+                                                        onDecision={decideBuild}
+                                                    />
+                                                )}
+                                            {t.embedded === "sandbox" &&
+                                                run && (
+                                                    <div
+                                                        className="card"
+                                                        id="sandbox-card"
+                                                    >
+                                                        <div className="card-topbar">
+                                                            <div>
+                                                                <span className="card-tagline">
+                                                                    Sandbox
+                                                                    Execution
+                                                                </span>
+                                                                <h2 className="card-title">
+                                                                    Isolated
+                                                                    Process
+                                                                    Runner
+                                                                </h2>
+                                                            </div>
+                                                            <span className="card-status-pill running">
+                                                                Running
+                                                            </span>
+                                                        </div>
+                                                        <p className="card-lead">
+                                                            Executing confirmed
+                                                            plan mutations in
+                                                            HardenedProcessRunner
+                                                            with workspace
+                                                            boundary
+                                                            enforcement.
+                                                        </p>
+                                                        <div className="hash-proof-box">
+                                                            <div className="hash-row">
+                                                                <span className="hash-label">
+                                                                    Status:
+                                                                </span>
+                                                                <span className="hash-val">
+                                                                    {run.events
+                                                                        .filter(
+                                                                            (
+                                                                                e,
+                                                                            ) =>
+                                                                                e.processor ===
+                                                                                "Builder",
+                                                                        )
+                                                                        .at(
+                                                                            -1,
+                                                                        )
+                                                                        ?.execution_status ||
+                                                                        "Running"}{" "}
+                                                                    ·{" "}
+                                                                    {run
+                                                                        .current_processor
+                                                                        ? currentPhase(
+                                                                              run,
+                                                                          )
+                                                                        : run.pipeline_status}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            {t.embedded === "result" &&
+                                                run && (
+                                                    <ResultCard
+                                                        run={run}
+                                                        mutations={mutations}
+                                                    />
+                                                )}
+                                        </div>
+                                    </div>
+                                ),
+                            )}
+                        </div>
                         </div>
 
                         {conversation &&
@@ -2036,129 +2169,271 @@ export default function Workspace() {
             {settings && (
                 <Modal
                     title="Provider Configuration"
-                    close={() => setSettings(false)}
+                    close={() => {
+                        setSettings(false);
+                        setShowCredential(false);
+                    }}
                 >
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "14px",
-                        }}
-                    >
-                        <p
-                            style={{
-                                fontSize: "12px",
-                                color: "var(--text-muted)",
-                            }}
-                        >
-                            Configure active model provider and runtime
-                            settings. Credentials are stored on the backend and never returned to the browser.
+                    <div className="prov-config">
+                        <p className="prov-intro">
+                            Configure the active model provider and runtime.
+                            Credentials are stored on the backend and never
+                            returned to the browser.
                         </p>
-                        {providerMessage && <p role="status">{providerMessage}</p>}
-                        {!providers.length && <button type="button" disabled={providerBusy} onClick={() => void loadProviders().catch(() => {})}>Retry provider catalog</button>}
-                        <div
-                            style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "8px",
-                            }}
-                        >
-                            {providers.map((p) => {
-                                const isSelected = p.id === activeProvider;
-                                return (
-                                    <form
-                                        key={p.id}
-                                        onSubmit={async (event) => {
-                                            event.preventDefault();
-                                            if (providerLock.current) return;
-                                            providerLock.current = true;
-                                            const form = event.currentTarget;
-                                            const fields = new FormData(form);
-                                            const credential = form.elements.namedItem("credential") as HTMLInputElement | null;
-                                            setProviderBusy(true);
-                                            setProviderMessage("");
-                                            try {
-                                                const path = `/api/providers/${encodeURIComponent(p.id)}`;
-                                                if (credential?.value.trim()) {
-                                                    await request(`${path}/credential`, { value: credential.value.trim() }, "PUT");
-                                                    credential.value = "";
-                                                }
-                                                await request(path, {
-                                                    model: String(fields.get("model") || "").trim(),
-                                                    apiBase: String(fields.get("apiBase") || "").trim(),
-                                                }, "PUT");
-                                                const activated = await request<{ activeProvider: string }>(`${path}/activate`, {}, "POST");
-                                                setActiveProvider(activated.activeProvider);
-                                                await loadProviders();
-                                                setProviderMessage(`${p.displayName} saved and active.`);
-                                            } catch (cause) {
-                                                setProviderMessage(cause instanceof Error ? cause.message : "Provider configuration failed.");
-                                            } finally {
-                                                if (credential) credential.value = "";
-                                                providerLock.current = false;
-                                                setProviderBusy(false);
-                                            }
-                                        }}
-                                        style={{
-                                            padding: "10px 12px",
-                                            background: isSelected
-                                                ? "var(--bg-raised)"
-                                                : "var(--bg-surface)",
-                                            border: `1px solid ${isSelected ? "var(--accent-blue-border)" : "var(--line-subtle)"}`,
-                                            borderRadius: "var(--radius-sm)",
-                                            display: "flex",
-                                            flexWrap: "wrap",
-                                            gap: "10px",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                        }}
+                        {providerMessage && (
+                            <div
+                                className={`prov-status-row ${
+                                    providerMessage.match(
+                                        /failed|Could not|unable/i,
+                                    )
+                                        ? "error"
+                                        : "connected"
+                                }`}
+                                role="status"
+                            >
+                                {providerMessage}
+                            </div>
+                        )}
+                        {!providers.length && (
+                            <button
+                                type="button"
+                                className="prov-retry"
+                                disabled={providerBusy}
+                                onClick={() =>
+                                    void loadProviders().catch(() => {})
+                                }
+                            >
+                                Retry provider catalog
+                            </button>
+                        )}
+                        <div className="prov-tiles">
+                            {providers.map((p) => (
+                                <button
+                                    key={p.id}
+                                    type="button"
+                                    className={`prov-tile ${
+                                        p.id === settingsProvider
+                                            ? "selected"
+                                            : ""
+                                    } ${
+                                        p.id === activeProvider ? "active" : ""
+                                    }`}
+                                    onClick={() => {
+                                        setSettingsProvider(p.id);
+                                        setShowCredential(false);
+                                    }}
+                                >
+                                    <span
+                                        className={`prov-dot ${
+                                            p.id === activeProvider
+                                                ? "live"
+                                                : ""
+                                        }`}
+                                    />
+                                    <span className="prov-name">
+                                        {p.displayName}
+                                    </span>
+                                    <span className="prov-sub">
+                                        {p.runtime?.model ||
+                                            p.model ||
+                                            "default model"}
+                                    </span>
+                                    <span
+                                        className={`prov-badge ${
+                                            p.id === activeProvider
+                                                ? "active"
+                                                : p.configured
+                                                  ? "configured"
+                                                  : ""
+                                        }`}
                                     >
-                                        <div>
-                                            <strong
-                                                style={{
-                                                    fontSize: "12px",
-                                                    color: "var(--text-primary)",
-                                                }}
-                                            >
-                                                {p.displayName}
-                                            </strong>
-                                            <span
-                                                className="block text-dim"
-                                                style={{ fontSize: "10.5px" }}
-                                            >
-                                                Model:{" "}
-                                                {p.runtime?.model ||
-                                                    p.model ||
-                                                    "default"}
-                                            </span>
+                                        {p.id === activeProvider
+                                            ? "Active"
+                                            : p.configured
+                                              ? "Configured"
+                                              : "Not set"}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                        {(() => {
+                            const selected =
+                                providers.find(
+                                    (p) => p.id === settingsProvider,
+                                ) ||
+                                providers.find(
+                                    (p) => p.id === activeProvider,
+                                ) ||
+                                providers[0];
+                            if (!selected) return null;
+                            const isSelected = selected.id === activeProvider;
+                            return (
+                                <form
+                                    key={selected.id}
+                                    className="prov-form"
+                                    onSubmit={async (event) => {
+                                        event.preventDefault();
+                                        if (providerLock.current) return;
+                                        providerLock.current = true;
+                                        const form = event.currentTarget;
+                                        const fields = new FormData(form);
+                                        const credential = form.elements.namedItem("credential") as HTMLInputElement | null;
+                                        setProviderBusy(true);
+                                        setProviderMessage("");
+                                        try {
+                                            const path = `/api/providers/${encodeURIComponent(selected.id)}`;
+                                            if (credential?.value.trim()) {
+                                                await request(`${path}/credential`, { value: credential.value.trim() }, "PUT");
+                                                credential.value = "";
+                                            }
+                                            await request(path, {
+                                                model: String(fields.get("model") || "").trim(),
+                                                apiBase: String(fields.get("apiBase") || "").trim(),
+                                            }, "PUT");
+                                            const activated = await request<{ activeProvider: string }>(`${path}/activate`, {}, "POST");
+                                            setActiveProvider(activated.activeProvider);
+                                            void loadProviders().catch(() => {});
+                                        } catch (cause) {
+                                            setProviderMessage(cause instanceof Error ? cause.message : "Provider configuration failed.");
+                                        } finally {
+                                            if (credential) credential.value = "";
+                                            providerLock.current = false;
+                                            setProviderBusy(false);
+                                        }
+                                    }}
+                                >
+                                    <div className="prov-form-head">
+                                        <strong>{selected.displayName}</strong>
+                                        <span className="prov-form-sub">
+                                            {selected.credentialType !== "none"
+                                                ? "Credential stored server-side · never returned"
+                                                : "No credential required"}
+                                        </span>
+                                    </div>
+                                    <div className="field">
+                                        <label>Model</label>
+                                        <input name="model" aria-label={`${selected.displayName} model`} defaultValue={selected.runtime?.model || selected.model || ""} required disabled={providerBusy} />
+                                    </div>
+                                    <div className="field">
+                                        <label>
+                                            API base URL{" "}
+                                            <span className="req">(optional)</span>
+                                        </label>
+                                        <input name="apiBase" type="url" aria-label={`${selected.displayName} API base URL`} defaultValue={selected.runtime?.apiBase || selected.apiBaseUrl || ""} disabled={providerBusy} />
+                                    </div>
+                                    {selected.credentialType !== "none" && (
+                                        <div className="field">
+                                            <label>
+                                                Credential{" "}
+                                                {selected.configured ? (
+                                                    <span className="req">
+                                                        (saved — leave blank to
+                                                        keep)
+                                                    </span>
+                                                ) : null}
+                                            </label>
+                                            <div className="secret-field">
+                                                <input
+                                                    name="credential"
+                                                    aria-label={`${selected.displayName} credential`}
+                                                    type={
+                                                        showCredential
+                                                            ? "text"
+                                                            : "password"
+                                                    }
+                                                    autoComplete="off"
+                                                    disabled={providerBusy}
+                                                    placeholder={
+                                                        selected.configured
+                                                            ? "••••••••"
+                                                            : ""
+                                                    }
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="secret-toggle"
+                                                    onClick={() =>
+                                                        setShowCredential(
+                                                            (v) => !v,
+                                                        )
+                                                    }
+                                                    aria-label="Toggle credential visibility"
+                                                >
+                                                    {showCredential
+                                                        ? "Hide"
+                                                        : "Show"}
+                                                </button>
+                                            </div>
                                         </div>
-                                        <label>
-                                            Model
-                                            <input name="model" aria-label={`${p.displayName} model`} defaultValue={p.runtime?.model || p.model || ""} required disabled={providerBusy} />
-                                        </label>
-                                        <label>
-                                            API base URL
-                                            <input name="apiBase" type="url" aria-label={`${p.displayName} API base URL`} defaultValue={p.runtime?.apiBase || p.apiBaseUrl || ""} disabled={providerBusy} />
-                                        </label>
-                                        {p.credentialType !== "none" && <label>
-                                            Credential {p.configured ? "(leave blank to keep saved credential)" : ""}
-                                            <input name="credential" aria-label={`${p.displayName} credential`} type="password" autoComplete="off" disabled={providerBusy} />
-                                        </label>}
+                                    )}
+                                    <div className="prov-actions">
+                                        <span
+                                            className={`prov-status-row ${
+                                                providerBusy
+                                                    ? "testing"
+                                                    : isSelected
+                                                      ? "connected"
+                                                      : ""
+                                            }`}
+                                            role="status"
+                                        >
+                                            {providerBusy
+                                                ? "Saving…"
+                                                : isSelected
+                                                  ? "Active provider — requests route here"
+                                                  : "Saved — activate to route requests"}
+                                        </span>
                                         <button
                                             type="submit"
                                             disabled={providerBusy}
-                                            className={`btn ${isSelected ? "btn-primary" : "btn-secondary"}`}
-                                            style={{
-                                                height: "26px",
-                                                fontSize: "11px",
-                                            }}
+                                            className={`prov-save ${
+                                                isSelected ? "primary" : ""
+                                            }`}
                                         >
-                                            {providerBusy ? "Saving…" : "Save and activate"}
+                                            {providerBusy
+                                                ? "Saving…"
+                                                : "Save & activate"}
                                         </button>
-                                    </form>
-                                );
-                            })}
+                                    </div>
+                                </form>
+                            );
+                        })()}
+                        <div className="prov-list">
+                            {providers.map((p) => (
+                                <div
+                                    key={p.id}
+                                    className={`prov-list-row ${
+                                        p.id === activeProvider ? "active" : ""
+                                    }`}
+                                >
+                                    <span
+                                        className={`prov-dot ${
+                                            p.id === activeProvider
+                                                ? "live"
+                                                : ""
+                                        }`}
+                                    />
+                                    <span className="prov-list-name">
+                                        {p.displayName}
+                                    </span>
+                                    <span className="prov-list-model">
+                                        {p.runtime?.model || p.model || "default"}
+                                    </span>
+                                    <span className="prov-list-state">
+                                        {p.id === activeProvider
+                                            ? "active"
+                                            : p.configured
+                                              ? "configured"
+                                              : "not set"}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
+                        <p className="prov-note">
+                            OneShot only calls the provider marked active. You
+                            can configure all providers and switch the active
+                            one at any time.
+                        </p>
                     </div>
                 </Modal>
             )}

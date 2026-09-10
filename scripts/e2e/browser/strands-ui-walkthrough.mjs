@@ -171,7 +171,12 @@ async function typeIntoComposer(text) {
 }
 
 // ---------- Navigate + authenticate ----------
-await cdp.send("Page.navigate", { url: BASE });
+// Cache-bust so a rebuild always serves the freshly exported bundle.
+await cdp.send("Network.enable");
+await cdp
+    .send("Network.setCacheDisabled", { cacheDisabled: true })
+    .catch(() => {});
+await cdp.send("Page.navigate", { url: `${BASE}/?t=${Date.now()}` });
 step("Navigated to real runtime " + BASE);
 await waitFor("workspace html", async () =>
   (await ev("!!document.querySelector('textarea')")) ? true : undefined,
@@ -190,6 +195,23 @@ await waitFor("workspace mounted", async () =>
 );
 record("Workspace UI mounted", "chat-view present", "present", true);
 await shot("01-workspace-loaded.png");
+
+// ---------- Start a fresh conversation (storage-level) ----------
+// A persistent browser profile resumes the previous conversation with
+// accumulated intent rounds. The initial restore has completed by the time
+// chat-view mounts (it only reads storage), so clearing the ids and
+// reloading starts a genuinely fresh exchange without touching the target.
+await ev(`(function(){
+    localStorage.removeItem("oneshot.currentConversationId");
+    localStorage.removeItem("oneshot.currentRunId");
+    return "cleared";
+})()`);
+await cdp.send("Page.reload");
+await waitFor(
+    "workspace remounted",
+    () => ev(`!!document.querySelector('[data-testid="chat-view"]')`),
+    { timeout: 30_000, poll: 400 },
+);
 
 // ---------- Send the project request ----------
 const REQUEST_TEXT =
@@ -269,11 +291,19 @@ await waitFor(
     const pill = await ev(
       `document.querySelector('[data-testid="research-summary-card"] .card-status-pill')?.textContent || ''`,
     );
-    return String(pill).includes("baseline") ? String(pill) : undefined;
+    // In the conversation-turn model the SAME assistant turn evolves past
+    // the research gate: either the research card still shows the accepted
+    // baseline (slow stages) or the turn already progressed to the Build
+    // Ready card (sample mode / fast stages).
+    if (String(pill).includes("baseline")) return String(pill);
+    const buildCard = await ev(
+      `!!document.querySelector('[data-testid="build-review-card"]')`,
+    );
+    return buildCard ? "turn progressed to build gate" : undefined;
   },
   { timeout: 90_000, poll: 500 },
 );
-record("Research Review gate accepted", "pill = Research baseline", "accepted", true);
+record("Research Review gate accepted", "pill = Research baseline or turn at Build Ready", "accepted", true);
 await shot("05-research-accepted.png");
 
 // ---------- Canonical stages progress ----------
